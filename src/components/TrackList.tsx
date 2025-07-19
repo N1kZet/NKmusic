@@ -76,7 +76,7 @@ function SortableTrack({track, idx, active, onRemove, onClick}: any) {
 }
 
 const TrackList: React.FC = () => {
-  const { playlist, current, setTrack } = usePlayerStore();
+  const { playlist, current, setTrack, playlistError } = usePlayerStore();
   const removeTrack = usePlayerStore((s: any) => s.removeTrack);
   const reorderTracks = usePlayerStore((s: any) => s.reorderTracks);
 
@@ -90,6 +90,70 @@ const TrackList: React.FC = () => {
     }
   };
 
+  // Кнопка добавления треков
+  const addButton = (
+    <label style={{
+      display: 'block',
+      marginBottom: 16,
+      cursor: 'pointer',
+      color: 'var(--accent, #007bff)',
+      fontWeight: 600,
+      fontSize: 18,
+      textAlign: 'center',
+      border: '2px dashed var(--accent, #b0c4de)',
+      borderRadius: 10,
+      padding: '12px 0',
+      background: 'var(--bg, #e6f0ff)',
+      transition: 'background 0.2s',
+      minWidth: 160,
+      marginRight: 0,
+    }}>
+      + Добавить треки
+      <input
+        type="file"
+        accept="audio/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={e => {
+          const files = e.target.files;
+          if (!files) return;
+          const addTracks = usePlayerStore.getState().addTracks;
+          const tracks = Array.from(files).map((file) => ({
+            src: URL.createObjectURL(file),
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            artist: 'Local',
+          }));
+          addTracks(tracks);
+          e.target.value = '';
+        }}
+      />
+    </label>
+  );
+
+  if (playlist.length === 0) {
+    return (
+      <div style={{
+        width: '100%',
+        maxWidth: 400,
+        margin: '32px auto',
+        background: '#f5f5f5',
+        border: '3px solid var(--accent, #888)',
+        borderRadius: 16,
+        padding: 16,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 0
+      }}>
+        {addButton}
+        <div style={{ color: '#888', fontSize: 18, marginTop: 12 }}>
+          Плейлист пуст.<br/>Добавьте треки!
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       width: '100%',
@@ -102,42 +166,13 @@ const TrackList: React.FC = () => {
       boxSizing: 'border-box',
       display: 'flex',
       flexDirection: 'column',
+      alignItems: 'stretch',
       gap: 0
     }}>
-      <label style={{
-        display: 'block',
-        marginBottom: 16,
-        cursor: 'pointer',
-        color: 'var(--accent, #007bff)',
-        fontWeight: 600,
-        fontSize: 18,
-        textAlign: 'center',
-        border: '2px dashed var(--accent, #b0c4de)',
-        borderRadius: 10,
-        padding: '12px 0',
-        background: 'var(--bg, #e6f0ff)',
-        transition: 'background 0.2s',
-      }}>
-        + Добавить треки
-        <input
-          type="file"
-          accept="audio/*"
-          multiple
-          style={{ display: 'none' }}
-          onChange={e => {
-            const files = e.target.files;
-            if (!files) return;
-            const addTracks = usePlayerStore.getState().addTracks;
-            const tracks = Array.from(files).map((file) => ({
-              src: URL.createObjectURL(file),
-              title: file.name.replace(/\.[^/.]+$/, ''),
-              artist: 'Local',
-            }));
-            addTracks(tracks);
-            e.target.value = '';
-          }}
-        />
-      </label>
+      {addButton}
+      {playlistError && (
+        <div style={{ color: 'red', fontWeight: 600, marginBottom: 12, textAlign: 'center' }}>{playlistError}</div>
+      )}
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={playlist.map((_, i) => i)} strategy={verticalListSortingStrategy}>
           {playlist.map((track, idx) => (

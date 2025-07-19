@@ -12,7 +12,6 @@ interface Track {
 const PLAYLIST_KEY = 'audioplayer_playlist_v1';
 
 function savePlaylist(playlist: Track[]) {
-  // Не сохраняем demo-треки и createObjectURL (локальные файлы не сохраняются)
   const toSave = playlist.filter(t => !t.src.startsWith('blob:')).map(({isDemo, ...t}) => t);
   localStorage.setItem(PLAYLIST_KEY, JSON.stringify(toSave));
 }
@@ -21,8 +20,16 @@ function loadPlaylist(): Track[] | null {
   try {
     const raw = localStorage.getItem(PLAYLIST_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
-  } catch {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('Плейлист повреждён');
+    // Проверяем, что каждый элемент похож на трек
+    for (const t of parsed) {
+      if (typeof t !== 'object' || !t.src || !t.title) throw new Error('Плейлист повреждён');
+    }
+    return parsed;
+  } catch (e) {
+    console.error('Ошибка чтения плейлиста из localStorage:', e);
+    localStorage.removeItem(PLAYLIST_KEY);
     return null;
   }
 }
@@ -39,6 +46,7 @@ interface PlayerState {
   addTracks: (tracks: Track[]) => void;
   removeTrack: (idx: number) => void;
   reorderTracks: (from: number, to: number) => void;
+  playlistError?: string | null;
 }
 
 const demoTracks: Track[] = [
@@ -57,12 +65,18 @@ const demoTracks: Track[] = [
 ];
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
-  // Загружаем из localStorage, если есть
-  const loaded = loadPlaylist();
+  let loaded: Track[] | null = null;
+  let playlistError: string | null = null;
+  try {
+    loaded = loadPlaylist();
+  } catch (e) {
+    playlistError = 'Ошибка чтения плейлиста. Используется стандартный.';
+  }
   return {
     playlist: loaded && loaded.length > 0 ? [...demoTracks, ...loaded] : [...demoTracks],
     current: 0,
     isPlaying: false,
+    playlistError,
     setTrack: (idx) => set({ current: idx, isPlaying: true }),
     play: () => set({ isPlaying: true }),
     pause: () => set({ isPlaying: false }),
